@@ -19,12 +19,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             WebDemoTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    val state = rememberWebViewState("https://www.google.com")
+                    val state = rememberWebViewState("file:///android_asset/index.html")
                     WebView(
                         state = state,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding)
+                            .padding(innerPadding),
+                        onCreated = { webView ->
+                            webView.settings.javaScriptEnabled = true
+                        }
                     )
                 }
             }
