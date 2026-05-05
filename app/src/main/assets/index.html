@@ -8,7 +8,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            padding: 16px;
+            padding: 16px 16px 20vh;
             transition: background-color 0.3s;
             min-height: 100vh;
         }
@@ -38,12 +38,13 @@
 
         .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 
-        .cards { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .cards { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
         .card {
-            width: 60px; height: 60px;
-            border-radius: 8px;
+            width: 40px; height: 40px;
+            border-radius: 6px;
             display: flex; align-items: center; justify-content: center;
             font-weight: bold; color: #fff;
+            font-size: 0.75rem;
             transition: transform 0.3s;
         }
 
@@ -56,16 +57,28 @@
             font-size: 0.85rem;
         }
 
+        .btn-pop { background: #b2dfdb; }
+        .btn-ring { background: #ffe082; }
+
+        #audio-status {
+            margin-top: 8px;
+            padding: 8px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
         #log {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            max-height: 30vh;
+            max-height: 16vh;
             overflow-y: auto;
             background: #1e1e1e;
             color: #0f0;
             font-family: monospace;
             font-size: 0.75rem;
-            padding: 8px;
+            padding: 6px 8px;
         }
         #log .out { color: #4fc3f7; }
         #log .in { color: #aed581; }
@@ -84,7 +97,7 @@
             <button class="btn btn-heavy" data-haptic="heavy">Heavy</button>
         </div>
         <div class="slider-row">
-            <label>Slider:</label>
+            <label for="haptic-slider">Slider:</label>
             <input type="range" id="haptic-slider" min="0" max="100" value="50">
             <span class="slider-value" id="slider-value">50</span>
         </div>
@@ -105,6 +118,17 @@
         </ul>
         <div class="cards" id="card-container"></div>
         <div id="shake-status">No shake detected yet.</div>
+    </section>
+
+    <!-- Audio Section -->
+    <section id="audio-demo">
+        <h2>HTML-side Audio Playback (Web Audio API)</h2>
+        <p>Tap either button to play synthesized sound in the page context.</p>
+        <div class="btn-row">
+            <button class="btn btn-pop" id="audio-bubble-btn">Bubble Pop</button>
+            <button class="btn btn-ring" id="audio-ring-btn">Metallic Ring</button>
+        </div>
+        <div id="audio-status">Audio idle. Tap a button to start.</div>
     </section>
 
     <!-- Debug Log -->
@@ -185,6 +209,124 @@
         const toggle = document.getElementById("haptic-toggle");
         toggle.addEventListener("change", () => {
             Bridge.send("haptic", { type: "medium" });
+        });
+
+        // ===== HTML-side Audio Demo =====
+        const audioStatus = document.getElementById("audio-status");
+        const bubbleBtn = document.getElementById("audio-bubble-btn");
+        const ringBtn = document.getElementById("audio-ring-btn");
+
+        let audioCtx = null;
+        let masterGain = null;
+
+        function setAudioStatus(text) {
+            audioStatus.textContent = text;
+        }
+
+        async function getAudioContext() {
+            const AudioCtor = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtor) {
+                throw new Error("Web Audio API not supported");
+            }
+
+            if (!audioCtx) {
+                audioCtx = new AudioCtor();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.35;
+                masterGain.connect(audioCtx.destination);
+            }
+
+            if (audioCtx.state === "suspended") {
+                await audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playBubblePop(ctx) {
+            const now = ctx.currentTime;
+
+            const osc = ctx.createOscillator();
+            const oscGain = ctx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(140, now + 0.09);
+            oscGain.gain.setValueAtTime(0.0001, now);
+            oscGain.gain.linearRampToValueAtTime(0.7, now + 0.008);
+            oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+            osc.connect(oscGain).connect(masterGain);
+            osc.start(now);
+            osc.stop(now + 0.12);
+
+            const noiseDuration = 0.06;
+            const noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * noiseDuration), ctx.sampleRate);
+            const channel = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < channel.length; i++) {
+                channel[i] = (Math.random() * 2 - 1) * (1 - i / channel.length);
+            }
+
+            const noise = ctx.createBufferSource();
+            const filter = ctx.createBiquadFilter();
+            const noiseGain = ctx.createGain();
+            noise.buffer = noiseBuffer;
+            filter.type = "highpass";
+            filter.frequency.value = 900;
+            noiseGain.gain.setValueAtTime(0.0001, now);
+            noiseGain.gain.linearRampToValueAtTime(0.12, now + 0.003);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+            noise.connect(filter).connect(noiseGain).connect(masterGain);
+            noise.start(now);
+            noise.stop(now + noiseDuration);
+        }
+
+        function playMetallicRing(ctx) {
+            const now = ctx.currentTime;
+            const baseHz = 1046.5;
+            const partials = [
+                { ratio: 1.0, gain: 0.22, decay: 1.8 },
+                { ratio: 2.76, gain: 0.12, decay: 1.35 },
+                { ratio: 4.1, gain: 0.08, decay: 1.05 }
+            ];
+
+            partials.forEach((partial) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(baseHz * partial.ratio, now);
+                gain.gain.setValueAtTime(0.0001, now);
+                gain.gain.linearRampToValueAtTime(partial.gain, now + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + partial.decay);
+                osc.connect(gain).connect(masterGain);
+                osc.start(now);
+                osc.stop(now + partial.decay + 0.05);
+            });
+        }
+
+        async function playAudioFromTap(kind) {
+            try {
+                const ctx = await getAudioContext();
+                if (kind === "bubble") {
+                    playBubblePop(ctx);
+                    setAudioStatus("Played: bubble pop (HTML-side)");
+                    log("info", "WebAudio played bubble pop from tap");
+                    return;
+                }
+
+                playMetallicRing(ctx);
+                setAudioStatus("Played: metallic ring (HTML-side)");
+                log("info", "WebAudio played metallic ring from tap");
+            } catch (err) {
+                const message = err && err.message ? err.message : String(err);
+                setAudioStatus(`Audio error: ${message}`);
+                log("info", `WebAudio error: ${message}`);
+            }
+        }
+
+        // Trigger only from direct tap on the two audio buttons.
+        bubbleBtn.addEventListener("pointerdown", () => {
+            playAudioFromTap("bubble");
+        });
+        ringBtn.addEventListener("pointerdown", () => {
+            playAudioFromTap("ring");
         });
 
         // ===== Shake Demo =====
