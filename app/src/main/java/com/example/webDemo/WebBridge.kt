@@ -7,6 +7,7 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONObject
@@ -19,6 +20,10 @@ class WebBridge(
     private val context: Context,
     private val webViewProvider: () -> WebView?
 ) {
+    companion object {
+        private const val TAG = "WebBridge"
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val vibrator: Vibrator by lazy {
@@ -39,12 +44,13 @@ class WebBridge(
             val obj = JSONObject(json)
             val action = obj.getString("action")
             val payload = obj.optJSONObject("payload") ?: JSONObject()
+            Log.d(TAG, "postMessage action=$action payload=$payload")
             when (action) {
                 "haptic" -> handleHaptic(payload)
                 "ready"  -> handleReady()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to parse JS message: $json", e)
         }
     }
 
@@ -69,9 +75,22 @@ class WebBridge(
             "medium" -> 30L to 128
             else     -> 15L to 64   // light
         }
-        vibrator.vibrate(
-            VibrationEffect.createOneShot(duration, amplitude)
-        )
+
+        if (!vibrator.hasVibrator()) {
+            Log.w(TAG, "Haptic ignored: device reports no vibrator")
+            return
+        }
+
+        try {
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(duration, amplitude)
+            )
+            Log.d(TAG, "Vibration triggered type=$type duration=${duration}ms amplitude=$amplitude")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Vibration blocked by permission/security policy", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected vibration failure", e)
+        }
     }
 
     private fun handleReady() {
