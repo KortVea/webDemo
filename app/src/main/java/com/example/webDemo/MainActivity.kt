@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
-                    val state = rememberWebViewState("file:///android_asset/index.html")
+                    val state = rememberWebViewState("file:///android_asset/index2.html")
 
                     // Hold a reference to the underlying WebView
                     val webViewRef = remember { arrayOfNulls<WebView>(1) }
