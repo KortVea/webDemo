@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
-                    val state = rememberWebViewState("file:///android_asset/index2.html")
+                    val state = rememberWebViewState("file:///android_asset/index3.html")
 
                     // Hold a reference to the underlying WebView
                     val webViewRef = remember { arrayOfNulls<WebView>(1) }
@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding),
                         onCreated = { webView ->
                             webView.settings.javaScriptEnabled = true
-                            webView.addJavascriptInterface(bridge, "Android")
+                            webView.addJavascriptInterface(bridge, "NativeBridge")
                             webViewRef[0] = webView
                         }
                     )
