@@ -22,7 +22,7 @@ import com.google.accompanist.web.rememberWebViewState
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                     val webViewRef = remember { arrayOfNulls<WebView>(1) }
 
                     // Create the bridge
-                    val bridge = remember {
+                    val bridge : WebBridge = remember {
                         WebBridge(context) { webViewRef[0] }
                     }
 
