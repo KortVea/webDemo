@@ -4,10 +4,11 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -25,10 +26,19 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         setContent {
             WebDemoTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                val backgroundColor = MaterialTheme.colorScheme.background
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = backgroundColor
+                ) { innerPadding ->
+                    // innerPadding intentionally unused — WebView goes full-screen edge-to-edge
+                    innerPadding
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
                     val state = rememberWebViewState("file:///android_asset/index3.html")
@@ -73,8 +83,7 @@ class MainActivity : ComponentActivity() {
                     WebView(
                         state = state,
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
+                            .fillMaxSize(),
                         onCreated = { webView ->
                             webView.settings.javaScriptEnabled = true
                             webView.addJavascriptInterface(bridge, "NativeBridge")
